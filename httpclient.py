@@ -115,10 +115,10 @@ class HTTPClient(object):
         return None
 
     def get_headers(self, data):
-        return None
+        return data.split("\r\n\r\n")[0]
 
     def get_body(self, data):
-        return None
+        return data.split("\r\n\r\n")[1]
 
     def sendall(self, data):
         self.socket.sendall(data.encode('utf-8'))
@@ -205,7 +205,10 @@ class HTTPClient(object):
             .replace("%24", "$").replace("%25", "%").replace("%26", "&").replace("%27", "'").replace("%28", "(")\
             .replace("%29", ")").replace("%2B", " ")
 
-        payload = f"POST {path} HTTP/1.1\r\nHost: {get_base_url(short_url)}\r\nAccept: */*\r\nContent-Length: {len(req_body.encode('utf-8'))}\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n{req_body}"
+        if req_body != '':
+            payload = f"POST {path} HTTP/1.1\r\nHost: {get_base_url(short_url)}\r\nAccept: */*\r\nContent-Length: {len(req_body.encode('utf-8'))}\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n{req_body}\r\n\r\n"
+        else:
+            payload = f"POST {path} HTTP/1.1\r\nHost: {get_base_url(short_url)}\r\nAccept: */*\r\nContent-Length: {len(req_body.encode('utf-8'))}\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n"
 
         self.connect(address, port)
 
