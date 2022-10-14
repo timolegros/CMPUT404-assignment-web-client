@@ -25,15 +25,15 @@
      a HTTPResponse object
 
 ** Requirements
-   - [ ] Implement basic HTTP GET
-   - [ ] Implement basic HTTP POST
-   - [ ] The httpclient can pass all the tests in freetests.py
+   - [x] Implement basic HTTP GET
+   - [x] Implement basic HTTP POST
+   - [x] The httpclient can pass all the tests in freetests.py
    - [ ] The webserver can pass all the tests in not-free-tests.py
      (you don't have this one! it can change -- but it will be fair to the user stories/requirements)
-   - [ ] HTTP POST can post vars
-   - [ ] HTTP POST handles at least Content-Type:
+   - [x] HTTP POST can post vars
+   - [x] HTTP POST handles at least Content-Type:
      application/x-www-form-urlencoded
-   - [ ] httpclient can handle 404 requests and 200 requests
+   - [x] httpclient can handle 404 requests and 200 requests
 
 ** Restrictions
    - [ ] Use Python 3.6 (3.6.7 is preferred)

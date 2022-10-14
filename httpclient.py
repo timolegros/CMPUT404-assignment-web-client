@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import base64
 # Do not use urllib's HTTP GET and POST mechanisms.
 # Write your own HTTP GET and POST
 # The point is to understand what you have to send and get experience with it
@@ -53,6 +53,7 @@ def get_host_port(url, protocol):
     if len(tempList) == 2:
         return tempList[0], int(tempList[1]), True
 
+
 def get_base_url(url):
     return url.split("/")[0]
 
@@ -71,7 +72,6 @@ def get_path(url, protocol):
 
 
 def get_protocol_url(full_url):
-
     if full_url.startswith("https:"):
         return "https", full_url.partition("https://")[-1]
     elif full_url.startswith("http:"):
@@ -91,6 +91,14 @@ def get_remote_ip(host):
 
     print(f'Ip address of {host} is {remote_ip}')
     return remote_ip
+
+
+def is_binary_data(data):
+    set_data = set(data)
+    if set_data == {'0', '1'} or set_data == {'1'} or set_data == {'0'}:
+        return True
+    else:
+        return False
 
 
 class HTTPClient(object):
@@ -127,7 +135,7 @@ class HTTPClient(object):
             if part:
                 buffer.extend(part)
             else:
-                done = False
+                done = not done
         return buffer.decode('utf-8')
 
     def GET(self, url, args=None):
@@ -142,25 +150,80 @@ class HTTPClient(object):
 
         # at this point we have the protocol, ip, port, and path extracted from the url, so we are ready to request
 
-        payload = f'GET {path} HTTP/1.1\r\nHost: {get_base_url(short_url)}\r\nUser-Agent: python/3\r\nAccept: */*\r\n\r\n'
+        payload = f'GET {path} HTTP/1.1\r\nHost: {get_base_url(short_url)}\r\nUser-Agent: python/3\r\nAccept: */*\r\nConnection: close\r\n\r\n'
 
         self.connect(address, port)
 
-        print("Request:\n\n", payload, sep="")
+        print("Request:\n", payload, sep="")
         self.sendall(payload)
-        self.socket.shutdown(socket.SHUT_WR)
 
-        # response = self.recvall(self.socket)
-        response = self.socket.recv(134217728)
-        # print("Response:\n\n", response, sep="")
-        return response
-        # return HTTPResponse(code, body)
+        response = self.recvall(self.socket)
+        self.close()
+        print("Response:\n", response, sep="")
+
+        header_lines = response.replace('\r', '').split('\n')
+        protocol = header_lines[0].split(' ')[0]
+        status_code = header_lines[0].split(' ')[1]
+        status_msg = header_lines[0].partition(status_code)[-1].strip()
+        body = response.split("\r\n\r\n")[1]
+
+        return HTTPResponse(int(status_code), body)
 
     def POST(self, url, args=None):
-        [host, port] = get_host_port(url)
-        code = 500
-        body = ""
-        return HTTPResponse(code, body)
+        [protocol, short_url] = get_protocol_url(url)
+        [host, port, is_ip] = get_host_port(short_url, protocol)
+
+        address = host
+        if not is_ip:
+            address = get_remote_ip(host)
+
+        path = get_path(short_url, protocol)
+
+        req_body = ''
+        count = 1
+
+        if args:
+            for id, data in args.items():
+                key = id
+                value = data
+
+                # if the key is in binary then convert to base64
+                if is_binary_data(key):
+                    key = base64.b64encode(key.encode('ascii'))
+
+                # if the value is in binary then convert to base64
+                if is_binary_data(value):
+                    value = base64.b64encode(value.encode('ascii'))
+
+                req_body += f"{key}={value}"
+                if count != len(args):
+                    req_body += '&'
+                count += 1
+
+        # url encoding
+        req_body = req_body.replace("%20", " ").replace("%21", "!").replace("%22", '"').replace("%23", "#")\
+            .replace("%24", "$").replace("%25", "%").replace("%26", "&").replace("%27", "'").replace("%28", "(")\
+            .replace("%29", ")").replace("%2B", " ")
+
+        payload = f"POST {path} HTTP/1.1\r\nHost: {get_base_url(short_url)}\r\nAccept: */*\r\nContent-Length: {len(req_body.encode('utf-8'))}\r\nContent-Type: application/x-www-form-urlencoded\r\nConnection: close\r\n\r\n{req_body}"
+
+        self.connect(address, port)
+
+        print("Request:\n", payload, sep="")
+        self.sendall(payload)
+
+        response = self.recvall(self.socket)
+        self.close()
+        print("Response:\n", response, sep="")
+        print("\n")
+
+        header_lines = response.replace('\r', '').split('\n')
+        protocol = header_lines[0].split(' ')[0]
+        status_code = header_lines[0].split(' ')[1]
+        status_msg = header_lines[0].partition(status_code)[-1].strip()
+        body = response.split("\r\n\r\n")[1]
+
+        return HTTPResponse(int(status_code), body)
 
     def command(self, url, command="GET", args=None):
         if (command == "POST"):
@@ -172,6 +235,7 @@ class HTTPClient(object):
 if __name__ == "__main__":
     client = HTTPClient()
     command = "GET"
+    print(len(sys.argv), sys.argv)
     if (len(sys.argv) <= 1):
         help()
         sys.exit(1)
